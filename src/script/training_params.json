@@ -1,0 +1,39 @@
+{
+    "EPOCHS": 100,
+    "VERBOSE": "False",
+    "DATASET_PARAMS": {
+        "train_dataset_params": {
+            "month": "03",
+            "type": "Solar System MPC",
+            "point_limit": 18,
+            "window_size": 5,
+            "window_overlap": 2
+        },
+        "valid_dataset_params": {
+            "month": "04",
+            "type": "Solar System MPC",
+            "point_limit": 26,
+            "window_size": 5,
+            "window_overlap": 2
+        },
+        "test_dataset_params": {
+            "month": "05",
+            "type": "Solar System MPC",
+            "point_limit": 25,
+            "window_size": 5,
+            "window_overlap": 2
+        }
+    },
+    "MODEL_PARAMS": {
+        "edge_layers": 3,
+        "edge_hidden": 8,
+        "node_layers": 3,
+        "node_hidden": 8,
+        "flow_in_layers": 3,
+        "flow_in_hidden": 8,
+        "flow_out_layers": 3,
+        "flow_out_hidden": 8,
+        "edge_classifier_layer": 10,
+        "MP_STEPS": 8
+    }
+}

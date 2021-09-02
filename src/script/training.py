@@ -17,6 +17,7 @@ from spektral.transforms.normalize_one import NormalizeOne
 from src.graph.motgraphdataset import MOTGraphDataset, EdgeNormalizeOne
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 
 # Loss
 def weighted_binary_cross_entropy(y_true, y_pred):
@@ -110,34 +111,46 @@ if __name__=="__main__":
         metrics.Recall(name="recall")
     ]
     
+    params_file = open("training_params.json")
+    data_params = json.load(params_file)
+    
     # Params
-    MP_STEPS = 2
-    EPOCHS = 100
-    verbose = False
+    EPOCHS = data_params['EPOCHS']
+    verbose = data_params['VERBOSE']
     
     t_before = t.time()
-    tr_dataset = MOTGraphDataset("03", 'Solar System MPC', 15, window_params=(5, 2),
+    train_window = (data_params['DATASET_PARAMS']['train_dataset_params']['window_size'],
+                    data_params['DATASET_PARAMS']['train_dataset_params']['window_overlap'])
+    tr_dataset = MOTGraphDataset(data_params['DATASET_PARAMS']['train_dataset_params']['month'], 
+                                 data_params['DATASET_PARAMS']['train_dataset_params']['type'],
+                                 data_params['DATASET_PARAMS']['train_dataset_params']['point_limit'],
+                                 window_params=train_window,
                                 transforms=[EdgeNormalizeOne(), NormalizeOne(), AdjToSpTensor()])
     print("tr_dataset construct time: ", t.time() - t_before)
     
     t_before = t.time()
-    val_dataset = MOTGraphDataset("04", 'Solar System MPC', 20, window_params=(5, 2),
+    valid_window = (data_params['DATASET_PARAMS']['valid_dataset_params']['window_size'],
+                    data_params['DATASET_PARAMS']['valid_dataset_params']['window_overlap'])
+    val_dataset = MOTGraphDataset(data_params['DATASET_PARAMS']['valid_dataset_params']['month'], 
+                                 data_params['DATASET_PARAMS']['valid_dataset_params']['type'],
+                                 data_params['DATASET_PARAMS']['valid_dataset_params']['point_limit'],
+                                 window_params=valid_window,
                                 transforms=[EdgeNormalizeOne(), NormalizeOne(), AdjToSpTensor()])
     print("dataset construct time: ", t.time() - t_before)
     
     # Model and Loader Initialisation
     motmodel = MOTModel(tr_dataset.n_node_features,
                         tr_dataset.n_edge_features,
-                        edge_layers=2,
-                        edge_hidden=6,
-                        node_layers=2,
-                        node_hidden=6,
-                        flow_in_layers=2,
-                        flow_in_hidden=6,
-                        flow_out_layers=2,
-                        flow_out_hidden=6,
-                        edge_classifier_layer=5,
-                        message_passing=MP_STEPS)
+                        edge_layers=data_params['MODEL_PARAMS']['edge_layers'],
+                        edge_hidden=data_params['MODEL_PARAMS']['edge_hidden'],
+                        node_layers=data_params['MODEL_PARAMS']['node_layers'],
+                        node_hidden=data_params['MODEL_PARAMS']['node_hidden'],
+                        flow_in_layers=data_params['MODEL_PARAMS']['flow_in_layers'],
+                        flow_in_hidden=data_params['MODEL_PARAMS']['flow_in_hidden'],
+                        flow_out_layers=data_params['MODEL_PARAMS']['flow_out_layers'],
+                        flow_out_hidden=data_params['MODEL_PARAMS']['flow_out_hidden'],
+                        edge_classifier_layer=data_params['MODEL_PARAMS']['edge_classifier_layer'],
+                        message_passing=data_params['MODEL_PARAMS']['MP_STEPS'])
     
     loader_tr = MOTLoader(tr_dataset, epochs=EPOCHS, batch_size=1)
     loader_va = MOTLoader(val_dataset, epochs=EPOCHS, batch_size=1)
@@ -161,8 +174,7 @@ if __name__=="__main__":
         
         
         tr_step = tr_epoch_steps % loader_tr.steps_per_epoch
-    
-        if verbose:
+        if verbose == "True":
             print_current_graph(tr_step, loader_tr.steps_per_epoch)
         
         if tr_step == 1:
@@ -198,7 +210,7 @@ if __name__=="__main__":
             for va_batch in loader_va:
                 val_step = val_epoch_steps % loader_va.steps_per_epoch
                 
-                if verbose:
+                if verbose == 'True':
                     print_current_graph(val_step, loader_va.steps_per_epoch)
                 
                 if val_step == 1:
@@ -225,7 +237,6 @@ if __name__=="__main__":
                     va_loss.append(epoch_loss)
                     for va_metric in validation_metrics:
                         va_metrics_results = manage_metrics(va_metric, va_metrics_results)
-                    
                     break
                 
             print("END EPOCH, elapsed time: {} sec".format(t.time() - tr_before))
@@ -236,10 +247,22 @@ if __name__=="__main__":
     
     print()
     
-    plt.plot(np.arange(len(tr_loss)), tr_loss)
-    plt.plot(np.arange(len(va_loss)), va_loss)
+    plt.plot(np.arange(len(tr_loss)), tr_loss, label="tr_loss")
+    plt.plot(np.arange(len(va_loss)), va_loss, label="va_loss")
+    plt.legend()
+    plt.savefig("training_result/train_val_loss")
+    plt.close()
     
+    for tr_metric_name, tr_metric_result in tr_metrics_results.items():
+        plt.plot(np.arange(len(tr_metric_result)), tr_metric_result, label="tr_" + tr_metric_name)
+        plt.legend()
+        plt.savefig("training_result/train_metric_" + tr_metric_name)
+        plt.close()
     
-        
+    for va_metric_name, va_metric_result in va_metrics_results.items():
+        plt.plot(np.arange(len(va_metric_result)), va_metric_result, label="va_" + va_metric_name)
+        plt.legend()
+        plt.savefig("training_result/valid_metric_" + va_metric_name)
+        plt.close()
     
     
