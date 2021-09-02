@@ -16,6 +16,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from src.graph.motgraph import MOTGraph
 import time as t
+import platform
 
 
 def sliding_window(base_value, window_size = 4, overlap = 2, copy = False):
@@ -67,7 +68,14 @@ def loadSSOdata(month, _class, point_limit):
         all alerts seen in the month, belonging to _class and seen more than point_limit times 
 
     """
-    path = "..\..\data\month=" + month
+    
+    
+    if platform.system() == 'Linux':
+        path = "../../data/month=" + month
+    elif platform.system() == 'Windows':
+        path = "..\..\data\month=" + month
+    else:
+        raise ValueError
     df_sso = pd.read_pickle(path)
     df_class = df_sso[df_sso['fink_class'] == _class]
     if _class == 'Solar System MPC':
@@ -162,19 +170,30 @@ class MOTGraphDataset(Dataset):
             graph_prune = tmp_df[(tmp_df['candid_x'] != tmp_df['candid_y'])\
                                & (tmp_df['nid_x'] != tmp_df['nid_y'])\
                                  
-                               & ( ((tmp_df['fid_x'] == tmp_df['fid_y']) &\
-                                      (np.abs(tmp_df['dcmag_x'] - tmp_df['dcmag_y']) <= 0.8))\
-                                  |((tmp_df['fid_x'] != tmp_df['fid_y']) &\
-                                      (np.abs(tmp_df['dcmag_x'] - tmp_df['dcmag_y']) <= 1.75)) )
+                               & (((tmp_df['dcmag_x'] - tmp_df['dcmag_y']) / (tmp_df['jd_x'] - tmp_df['jd_y'])) <= 1.0)
                                 ]
             
             del tmp_df
+            
+            ra_x, dec_x = np.array(graph_prune['ra_x']), np.array(graph_prune['dec_x'])
+            ra_y, dec_y = np.array(graph_prune['ra_y']), np.array(graph_prune['dec_y']) 
+            
+            c1 = SkyCoord(ra_x, dec_x, unit = u.degree)
+            c2 = SkyCoord(ra_y, dec_y, unit = u.degree)
+            alerts_sep = c1.separation(c2)
+            graph_prune['alert_sep'] = alerts_sep
+            graph_prune = graph_prune[graph_prune['alert_sep'] <= 0.8]            
+            
             print("constructing graph nb {} with {} nodes and {} edges"\
                   .format(nb_graph, len(df_frames), len(graph_prune)))
             
+            # take edges where extremity nodes are the same mpc object
             same_mpc = graph_prune[graph_prune['ssnamenr_x'] == graph_prune['ssnamenr_y']]
+            # take edges where the left node have been created before the right node
             forward_same_mpc = same_mpc[same_mpc['nid_x'] < same_mpc['nid_y']]
+            # take only one edge if multiple exists
             idx_label = forward_same_mpc.groupby(['ssnamenr_x', 'nid_x'])['nid_y'].idxmin()
+            # create the training label
             graph_prune.loc[same_mpc.loc[idx_label].index, 'label'] = 1
                         
             edge_label = graph_prune['label'].to_numpy().astype(np.int32)
@@ -185,16 +204,9 @@ class MOTGraphDataset(Dataset):
             sparse_adj_mat = coo_matrix((data, (row, col)), shape=(len(df_frames), len(df_frames))).tocsr()
             node_feature = df_frames[['ra', 'dec', 'jd', 'dcmag', 'nid', 'fid']].to_numpy()
             
-            ra_x, dec_x = np.array(graph_prune['ra_x']), np.array(graph_prune['dec_x'])
-            ra_y, dec_y = np.array(graph_prune['ra_y']), np.array(graph_prune['dec_y']) 
-            
-            c1 = SkyCoord(ra_x, dec_x, unit = u.degree)
-            c2 = SkyCoord(ra_y, dec_y, unit = u.degree)
-            alerts_sep = c1.separation(c2)
-            
             edge_feature = np.c_[np.array(np.abs(graph_prune['dcmag_x'] - graph_prune['dcmag_y'])),
             np.array(graph_prune['jd_x'] - graph_prune['jd_y']),
-            np.array(alerts_sep),
+            np.array(graph_prune['alert_sep']),
             np.array(graph_prune['nid_x'] - graph_prune['nid_y'])]
 
             past_index = np.where(edge_feature[:, -1] > 0)[0]
@@ -225,10 +237,10 @@ if __name__ == "__main__":
     print("test")
     
     t_before = t.time()
-    tr_dataset = MOTGraphDataset("03", 'Solar System MPC', 19, window_params=(5, 2),
+    tr_dataset = MOTGraphDataset("03", 'Solar System MPC', 15, window_params=(5, 2),
                                 transforms=[EdgeNormalizeOne(), NormalizeOne(), AdjToSpTensor()])
     print("tr_dataset construct time: ", t.time() - t_before)
     
     for g in tr_dataset:
-        print(type(g.y))
+        print(g.y.sum())
     
