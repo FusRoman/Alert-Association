@@ -21,6 +21,22 @@ import json
 
 # Loss
 def weighted_binary_cross_entropy(y_true, y_pred):
+    """
+    Computed a weighted binary cross entropy in order to solve the imbalancing between true label and false label.
+    Weight are dynamically computed with the imbalance of true label.
+
+    Parameters
+    ----------
+    y_true : numpy array or tensor
+        true label
+    y_pred : numpy array or tensor
+        prediction done by the model
+    
+    Return
+    ------
+    weighted_bce : float
+        weighted_binary_cross_entropy
+    """
     nb_ones = tf.math.reduce_sum(y_true)    
     nb_zeros = tf.shape(y_true)[0] - nb_ones
     ones_prop = nb_zeros // nb_ones
@@ -33,6 +49,31 @@ def weighted_binary_cross_entropy(y_true, y_pred):
 # Custom train step
 @tf.function()
 def train_step(model, optimizer, losses, metrics, x, y):
+    """
+    Function that perform one step of training
+    Model return a prediction then the loss of the model is computed in respect of the true label.
+    The loss gradient is computed then the model weights are update in respect of the loss gradient.
+
+    Parameters
+    ----------
+    model : Model class
+        model used to compute prediction
+    optimizer : Optimizer Keras class
+        optimizer that rules the gradient update
+    losses : loss function
+        loss function
+    metrics : metrics class list
+        list of metrics to keep track of performance model during the training process
+    x : numpy array or tensor
+        current batch of training data
+    y : numpy array or tensor
+        current batch of true label
+    
+    Return
+    ------
+    loss_value : numpy array or tensor
+        the loss value of the current training step
+    """
     with tf.GradientTape() as tape:
         logits = model(x, training=True)
         loss_value = losses(y, logits)
@@ -52,6 +93,27 @@ def train_step(model, optimizer, losses, metrics, x, y):
 # Custom test step
 @tf.function()
 def test_step(model, losses, metrics, x, y):
+    """
+    Function used to perform test step. x must belong to validation or test dataset.
+
+    Parameters
+    ----------
+    model : Model class
+        model used to compute prediction
+    losses : loss function
+        loss function
+    metrics : metrics class list
+        list of metrics to keep track of performance model during the test process
+    x : numpy array or tensor
+        current batch of validation/test data
+    y : numpy array or tensor
+        current batch of true label
+    
+    Return
+    ------
+    loss_value : numpy array or tensor
+        the loss value of the current training step
+    """
     logits = model(x, training=False)
     loss_value = losses(y, logits)
     for metric in metrics:
@@ -59,6 +121,22 @@ def test_step(model, losses, metrics, x, y):
     return loss_value
         
 def make_inputs(data, graph_i):
+    """
+    Build the right inputs to feed to the MOTModel
+
+    Parameters 
+    ----------
+    data : numpy array or tensor
+        current batch of graph belonging to training dataset
+    graph_i : integer
+        the graph index in the current graph
+    
+    Return
+    ------
+    graph input : list of graph information
+        x is the nodes features, a is the sparse adjacency matrix
+        e is the edges features, past_index is the index of past_edge and futur_index is the index of futur_index
+    """
     x = data[0][graph_i]
     a = data[1][graph_i]
     e = data[2][graph_i]
@@ -67,6 +145,20 @@ def make_inputs(data, graph_i):
     return [x, a, e, past_index, futur_index]
 
 def manage_metrics(metric, result_dict):
+    """
+    Print the metrics results and reset their states
+
+    Parameters
+    ----------
+    metric : list of metric
+    result_dict : dict
+        contains all results metrics of the training/test process
+
+    Return
+    ------
+    result_dict : dict
+        contains all results metrics of the training/test process
+    """
     all_res = result_dict.setdefault(metric.name, [])
     result = metric.result()
     print("\t\t{} : {}".format(metric.name, result))
@@ -76,6 +168,16 @@ def manage_metrics(metric, result_dict):
     return result_dict
 
 def print_current_graph(step, max_samples):
+    """
+    Used to monitor the current graph which are processed during the step
+
+    Parameters
+    ----------
+    step : integer
+        current training/test step
+    max_samples :
+        number of steps per epoch
+    """
     if step == 0:
         print("graph {}".format(max_samples))
     else:
@@ -139,6 +241,7 @@ if __name__=="__main__":
     print("dataset construct time: ", t.time() - t_before)
     
     # Model and Loader Initialisation
+    # Get parameters from json file
     motmodel = MOTModel(tr_dataset.n_node_features,
                         tr_dataset.n_edge_features,
                         edge_layers=data_params['MODEL_PARAMS']['edge_layers'],

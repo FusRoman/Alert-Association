@@ -3,21 +3,21 @@
     "VERBOSE": "False",
     "DATASET_PARAMS": {
         "train_dataset_params": {
-            "month": "03",
+            "month": "../../../data/month=03",
             "type": "Solar System MPC",
             "point_limit": 18,
             "window_size": 5,
             "window_overlap": 2
         },
         "valid_dataset_params": {
-            "month": "04",
+            "month": "../../../data/month=03",
             "type": "Solar System MPC",
             "point_limit": 26,
             "window_size": 5,
             "window_overlap": 2
         },
         "test_dataset_params": {
-            "month": "05",
+            "month": "../../../data/month=03",
             "type": "Solar System MPC",
             "point_limit": 25,
             "window_size": 5,

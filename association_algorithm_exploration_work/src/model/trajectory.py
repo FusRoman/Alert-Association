@@ -149,7 +149,7 @@ def trajectory_metrics(trajectories):
     ------
     metrics : dict
         a dictionnary which contains two trajectories metrics
-        
+
             accuracy measure the mean of the number of positive label in trajectories
             consistency measure the mean of the number of mpc name in trajectories
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     
     t_before = t.time()
     # AdjToSpTensor()
-    tr_dataset = motdataset.MOTGraphDataset("03", 'Solar System MPC', 15, window_params=(5, 2),
+    tr_dataset = motdataset.MOTGraphDataset("../../../data/month=03", 'Solar System MPC', 15, window_params=(5, 2),
                                 transforms=[motdataset.EdgeNormalizeOne(), NormalizeOne(), AdjToSpTensor()])
     print("dataset construct time: ", t.time() - t_before)
     
