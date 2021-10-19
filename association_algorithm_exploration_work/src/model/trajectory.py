@@ -13,6 +13,20 @@ from spektral.transforms import AdjToSpTensor
 from spektral.transforms.normalize_one import NormalizeOne
 
 def mean_edge_pred_window(all_graph):
+    """
+    Compute the prediction mean of duplicates edges. A sliding windows with overlappping is applied during the graph building process which produce duplicates edges
+
+    Parameters
+    ----------
+    all_graph : dataframe
+        contains all edges features plus the prediction column return from MOTModel
+    
+    Return
+    ------
+    mean_merge : dataframe
+        a dataframe where each edges have his mean prediction over all his duplicates edges
+    """
+
     frames = [g.edge_info for g in all_graph]
     df_concat = pd.concat(frames).reset_index(drop=True)
     df_gb_test = df_concat.groupby(['candid_x', 'candid_y']).agg({
@@ -30,6 +44,19 @@ def mean_edge_pred_window(all_graph):
 
 
 def greedy_constraints(edge_mean_pred):
+    """
+    Keep only the max egde prediction for the past edge and futur edge for all nodes one by one
+
+    Parameters
+    ----------
+    edge_mean_pred : dataframe
+        results from mean_edge_pred_window function
+
+    Return
+    ------
+    backward_trajectories : dataframe
+        dataframe where each node have only one edge to the past and one edge to the futur and each edge is the max among all the others.
+    """
     active_edge = edge_mean_pred[edge_mean_pred['pred'] >= 0.5]
     forward = active_edge[active_edge['nid_x'] < active_edge['nid_y']]
     backward = active_edge[active_edge['nid_x'] > active_edge['nid_y']]
@@ -53,6 +80,25 @@ def greedy_constraints(edge_mean_pred):
     return backward_trajectories
 
 def set_track_id(hypotheses_edge, row, track_id, track_id_list):
+    """
+    Assign an id to all track return by greedy_constraints function
+    Perform recursion over the predict association in the dataframe.
+    Parameters
+    ----------
+    hypotheses_edge : dataframe
+        results from greedy_constraints function
+    row : A Series column
+        assigns a trajectory id to this row if they already don't have it.
+    track_id : integer
+        the current trajectory id assign to this trajectory.
+    track_id_list : integer list
+        all trajectories id already given to previous trajectories
+
+    Return
+    ------
+    track_id_list : integer list
+        list of all trajectories id already given
+    """
     index = row[0]
     if track_id_list[index] == -1:
         track_id_list[index] = track_id
@@ -67,6 +113,20 @@ def set_track_id(hypotheses_edge, row, track_id, track_id_list):
     
     
 def build_trajectories(active_edge):
+    """
+    Build trajectories from all active edge return by MOTModel. An edge is set to active if his prediction is greater than 0.5 .
+    Trajecories id assignation is perform inplace in the active edge dataframe
+
+    Parameters
+    ----------
+    active_edge : dataframe
+        all edges that have their predictions above 0.5
+    
+    Return
+    ------
+    track_id_list : integer list
+        list of all trajectories id already given
+    """
     track_id_list = np.zeros(len(active_edge)) + (-1)
     
     track_id = 0
@@ -77,6 +137,24 @@ def build_trajectories(active_edge):
 
 
 def trajectory_metrics(trajectories):
+    """
+    Compute metrics to measure the trajectories prediction performance
+
+    Parameters
+    ----------
+    trajectories : dataframe
+        dataframe which contains all features edges and trajectories id computed by build_trajectories.
+    
+    Return
+    ------
+    metrics : dict
+        a dictionnary which contains two trajectories metrics
+        
+            accuracy measure the mean of the number of positive label in trajectories
+            consistency measure the mean of the number of mpc name in trajectories
+
+            note : consistency seems more interesting than accuracy
+    """
     all_track_id = np.unique(trajectories['track_id'])
     
     traj_sum = 0

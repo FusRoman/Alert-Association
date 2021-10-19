@@ -10,6 +10,9 @@ from spektral.models.general_gnn import MLP
 from src.model.motlayer import MOTLayer
 
 class MOTModel(Model):
+    """
+    Build a MOTModel which consist of one or multiple MOTLayer and one MLP Layer used to perform final edge classification
+    """
     def __init__(
         self,
         node_inputs_channels,
@@ -32,6 +35,51 @@ class MOTModel(Model):
         batch_norm=True,
         dropout=0.0,
     ):
+        """
+        MOTModel Constructor
+
+        Parameters
+        ----------
+
+        node_inputs_channels : integer
+            number of nodes feature
+        edge_inputs_channels : integer
+            number of edges feature
+        edge_hidden : integer 
+            number of units of the edge mlp
+        edge_layer : integer
+            number of layers of the edge mlp
+        node_hidden : integer 
+            number of units of the node mlp
+        node_layer : integer
+            number of layers of the node mlp
+        flow_in_hidden : integer 
+            number of units of the flow_in mlp
+        flow_in_layer : integer
+            number of layers of the flow_in mlp
+        flow_out_hidden : integer 
+            number of units of the flow_out mlp
+        flow_out_layer : integer
+            number of layers of the flow_out mlp
+        mp_activation : string or keras activation class
+            the activation function of the hidden layer of the four mlp in the motlayer
+        mp_final_activation : string or keras activation class
+            the activation function of the last mlp layer of the four mlp in the motlayer
+        edge_classifier_hidden : integer
+            number of unit of the edge_classifier
+        edge_classifier_layer : integer
+            number of layer of the edge classifier
+        edge_classifier_activation : string or keras activation class
+            the activation function of the hidden layer of the edge_classifier
+        edge_classifier_final_activation : string or keras activation class
+            the activation function of the last layer of the edge_classifier
+        message_passing : integer
+            number of message passing step, build a number of message passing layer equal to this argument
+        batch_norm : Boolean
+            if is true, used a BatchNormalization Layer in the edge_classifier
+        dropout : float between 0 and 1
+            fraction of the input units to drop        
+        """
         super().__init__()
         
         self.edge_mlp = MLP(edge_inputs_channels, 
@@ -75,6 +123,21 @@ class MOTModel(Model):
         )
 
     def call(self, inputs, training=None):
+        """
+        Function applied for a MOTModel call, perform all the message passing steps then return edge prediction based on the edge_classifier.
+
+        Parameters
+        ----------
+        inputs : graph batch information
+            node feature, adjacendy matrix, edge feature and the index that locate the past edges and futur edges for each nodes contains in one batch
+        training : Boolean
+            set the training mode, impact only BatchNormalizationLayer
+        
+        Return
+        ------
+        edge_classifier_prediction : numpy array or tensor
+            the edge classifier prediction over all edges
+        """
         if len(inputs) == 5:
             node_out, a, edge_out, past_index, futur_index = inputs
         else:
