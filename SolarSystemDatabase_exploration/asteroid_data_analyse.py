@@ -223,7 +223,7 @@ if __name__=="__main__":
         df_mpc_fid_1['delta_mag'] = df_mpc_fid_1.apply(mag_df, axis=1)
         df_mpc_fid_2['delta_mag'] = df_mpc_fid_2.apply(mag_df, axis=1)
 
-        plt.title('Distribution de la séparation engulaire entre deux observation consécutives des objets MPC')
+        plt.title('Distribution de la séparation angulaire entre deux observation consécutives des objets MPC')
         plt.ylabel('séparation angulaire normalisé en jour (jd)')
         plt.hist(df_sep.explode(['sep'])['sep'].values, bins=200, range=(0, 1))
 
